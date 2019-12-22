@@ -1,5 +1,19 @@
 # Unreleased
 
+- Add everything introduced by...
+    +   VK_KHR_external_fence
+    +   VK_KHR_external_fence_capabilities
+    +   VK_KHR_external_fence_fd
+    +   VK_KHR_external_fence_win32
+    +   VK_KHR_external_memory
+    +   VK_KHR_external_memory_capabilities
+    +   VK_KHR_external_memory_fd
+    +   VK_KHR_external_memory_win32
+    +   VK_KHR_external_semaphore
+    +   VK_KHR_external_semaphore_capabilities
+    +   VK_KHR_external_semaphore_fd
+    +   VK_KHR_external_semaphore_win32
+
 # Version 0.5.0 (2019-11-01)
 
 - Add const `STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR` and
