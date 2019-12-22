@@ -8,18 +8,49 @@
 // according to those terms.
 
 #![doc(html_logo_url = "https://raw.githubusercontent.com/vulkano-rs/vulkano/master/logo.png")]
-
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-use std::mem;
 use std::ffi::CStr;
 use std::fmt;
+use std::mem;
 use std::os::raw::c_char;
-use std::os::raw::c_void;
-use std::os::raw::c_ulong;
 use std::os::raw::c_double;
+use std::os::raw::c_int;
+use std::os::raw::c_uint;
+use std::os::raw::c_ulong;
+use std::os::raw::c_void;
+
+/// Windows-specific types - these are already defined in the `winapi` crate,
+/// however we can't use that since it only compiles on Windows
+pub mod win_types {
+    use super::*;
+
+    /// `winapi` equivalent: `winapi::shared::minwindef::BOOL`
+    pub type BOOL = c_int;
+
+    /// `winapi` equivalent: `winapi::shared::minwindef::DWORD`
+    pub type DWORD = c_ulong;
+
+    /// `winapi` equivalent: `winapi::shared::minwindef::LPVOID`
+    pub type LPVOID = *mut c_void;
+
+    /// `winapi` equivalent: `winapi::shared::ntdef::LPCWSTR`
+    pub type LPCWSTR = *const u16;
+
+    /// `winapi` equivalent: `winapi::shared::ntdef::HANDLE`
+    pub type HANDLE = *mut c_void;
+
+    /// `winapi` equivalent: `winapi::um::minwinbase::SECURITY_ATTRIBUTES`
+    #[derive(Copy, Clone)]
+    #[repr(C)]
+    pub struct SECURITY_ATTRIBUTES {
+        nLength: DWORD,
+        lpSecurityDescriptor: LPVOID,
+        bInheritHandle: BOOL,
+    }
+}
 
 pub type Flags = u32;
 pub type Bool32 = u32;
@@ -74,6 +105,8 @@ pub const MAX_MEMORY_HEAPS: u32 = 16;
 pub const MAX_EXTENSION_NAME_SIZE: u32 = 256;
 pub const MAX_DESCRIPTION_SIZE: u32 = 256;
 pub const NULL_HANDLE: u64 = 0;
+pub const LUID_SIZE_KHR: u32 = 8;
+pub const QUEUE_FAMILY_EXTERNAL: u32 = !(0 as c_uint) - 1;
 
 pub type PipelineCacheHeaderVersion = u32;
 pub const PIPELINE_CACHE_HEADER_VERSION_ONE: u32 = 1;
@@ -104,6 +137,7 @@ pub const ERROR_INCOMPATIBLE_DISPLAY_KHR: u32 = -1000003001i32 as u32;
 pub const ERROR_VALIDATION_FAILED_EXT: u32 = -1000011001i32 as u32;
 pub const ERROR_INVALID_SHADER_NV: u32 = -1000012000i32 as u32;
 pub const ERROR_OUT_OF_POOL_MEMORY_KHR: u32 = -1000069000i32 as u32;
+pub const ERROR_INVALID_EXTERNAL_HANDLE: u32 = -1000072003i32 as u32;
 
 pub type StructureType = u32;
 pub const STRUCTURE_TYPE_APPLICATION_INFO: u32 = 0;
@@ -167,11 +201,11 @@ pub const STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR: u32 = 1000008000;
 pub const STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR: u32 = 1000009000;
 pub const STRUCTURE_TYPE_IOS_SURFACE_CREATE_INFO_MVK: u32 = 1000122000 + (122 * 1000);
 pub const STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK: u32 = 1000000000 + (123 * 1000);
-pub const STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT:u32 = 1000128000;
-pub const STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_TAG_INFO_EXT:u32 = 1000128001;
-pub const STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT:u32 = 1000128002;
-pub const STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT:u32 = 1000128003;
-pub const STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT:u32 = 1000128004;
+pub const STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT: u32 = 1000128000;
+pub const STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_TAG_INFO_EXT: u32 = 1000128001;
+pub const STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT: u32 = 1000128002;
+pub const STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT: u32 = 1000128003;
+pub const STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT: u32 = 1000128004;
 pub const STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR: u32 = 1000059000;
 pub const STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR: u32 = 1000059001;
 pub const STRUCTURE_TYPE_FORMAT_PROPERTIES_2_KHR: u32 = 1000059002;
@@ -193,6 +227,38 @@ pub const STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR: u32 = 1000146001;
 pub const STRUCTURE_TYPE_IMAGE_SPARSE_MEMORY_REQUIREMENTS_INFO_2_KHR: u32 = 1000146002;
 pub const STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR: u32 = 1000146003;
 pub const STRUCTURE_TYPE_SPARSE_IMAGE_MEMORY_REQUIREMENTS_2_KHR: u32 = 1000146004;
+pub const STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR: u32 = 1000071004;
+pub const STRUCTURE_TYPE_EXPORT_FENCE_CREATE_INFO_KHR: u32 = 1000113000;
+pub const STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_FENCE_INFO_KHR: u32 = 1000112000;
+pub const STRUCTURE_TYPE_EXTERNAL_FENCE_PROPERTIES_KHR: u32 = 1000112001;
+pub const STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR: u32 = 1000115000;
+pub const STRUCTURE_TYPE_FENCE_GET_FD_INFO_KHR: u32 = 1000115001;
+pub const STRUCTURE_TYPE_IMPORT_FENCE_WIN32_HANDLE_INFO_KHR: u32 = 1000114000;
+pub const STRUCTURE_TYPE_EXPORT_FENCE_WIN32_HANDLE_INFO_KHR: u32 = 1000114001;
+pub const STRUCTURE_TYPE_FENCE_GET_WIN32_HANDLE_INFO_KHR: u32 = 1000114002;
+pub const STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHR: u32 = 1000072000;
+pub const STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO_KHR: u32 = 1000072001;
+pub const STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR: u32 = 1000072002;
+pub const STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO_KHR: u32 = 1000071000;
+pub const STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES_KHR: u32 = 1000071001;
+pub const STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO_KHR: u32 = 1000071002;
+pub const STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES_KHR: u32 = 1000071003;
+pub const STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR: u32 = 1000074000;
+pub const STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR: u32 = 1000074001;
+pub const STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR: u32 = 1000074002;
+pub const STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR: u32 = 1000073000;
+pub const STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR: u32 = 1000073001;
+pub const STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR: u32 = 1000073002;
+pub const STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR: u32 = 1000073003;
+pub const STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO_KHR: u32 = 1000077000;
+pub const STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_SEMAPHORE_INFO_KHR: u32 = 1000076000;
+pub const STRUCTURE_TYPE_EXTERNAL_SEMAPHORE_PROPERTIES_KHR: u32 = 1000076001;
+pub const STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR: u32 = 1000079000;
+pub const STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR: u32 = 1000079001;
+pub const STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR: u32 = 1000078000;
+pub const STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR: u32 = 1000078001;
+pub const STRUCTURE_TYPE_D3D12_FENCE_SUBMIT_INFO_KHR: u32 = 1000078002;
+pub const STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR: u32 = 1000078003;
 
 pub type SystemAllocationScope = u32;
 pub const SYSTEM_ALLOCATION_SCOPE_COMMAND: u32 = 0;
@@ -630,7 +696,6 @@ pub const FORMAT_FEATURE_TRANSFER_SRC_BIT_KHR: u32 = 0x00004000;
 pub const FORMAT_FEATURE_TRANSFER_DST_BIT_KHR: u32 = 0x00008000;
 pub type FormatFeatureFlags = Flags;
 
-
 pub type ImageUsageFlagBits = u32;
 pub const IMAGE_USAGE_TRANSFER_SRC_BIT: u32 = 0x00000001;
 pub const IMAGE_USAGE_TRANSFER_DST_BIT: u32 = 0x00000002;
@@ -642,7 +707,6 @@ pub const IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT: u32 = 0x00000040;
 pub const IMAGE_USAGE_INPUT_ATTACHMENT_BIT: u32 = 0x00000080;
 pub type ImageUsageFlags = Flags;
 
-
 pub type ImageCreateFlagBits = u32;
 pub const IMAGE_CREATE_SPARSE_BINDING_BIT: u32 = 0x00000001;
 pub const IMAGE_CREATE_SPARSE_RESIDENCY_BIT: u32 = 0x00000002;
@@ -651,7 +715,6 @@ pub const IMAGE_CREATE_MUTABLE_FORMAT_BIT: u32 = 0x00000008;
 pub const IMAGE_CREATE_CUBE_COMPATIBLE_BIT: u32 = 0x00000010;
 pub const IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT_KHR: u32 = 0x00000020;
 pub type ImageCreateFlags = Flags;
-
 
 pub type SampleCountFlagBits = u32;
 pub const SAMPLE_COUNT_1_BIT: u32 = 0x00000001;
@@ -663,14 +726,12 @@ pub const SAMPLE_COUNT_32_BIT: u32 = 0x00000020;
 pub const SAMPLE_COUNT_64_BIT: u32 = 0x00000040;
 pub type SampleCountFlags = Flags;
 
-
 pub type QueueFlagBits = u32;
 pub const QUEUE_GRAPHICS_BIT: u32 = 0x00000001;
 pub const QUEUE_COMPUTE_BIT: u32 = 0x00000002;
 pub const QUEUE_TRANSFER_BIT: u32 = 0x00000004;
 pub const QUEUE_SPARSE_BINDING_BIT: u32 = 0x00000008;
 pub type QueueFlags = Flags;
-
 
 pub type MemoryPropertyFlagBits = u32;
 pub const MEMORY_PROPERTY_DEVICE_LOCAL_BIT: u32 = 0x00000001;
@@ -680,13 +741,11 @@ pub const MEMORY_PROPERTY_HOST_CACHED_BIT: u32 = 0x00000008;
 pub const MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT: u32 = 0x00000010;
 pub type MemoryPropertyFlags = Flags;
 
-
 pub type MemoryHeapFlagBits = u32;
 pub const MEMORY_HEAP_DEVICE_LOCAL_BIT: u32 = 0x00000001;
 pub type MemoryHeapFlags = Flags;
 pub type DeviceCreateFlags = Flags;
 pub type DeviceQueueCreateFlags = Flags;
-
 
 pub type PipelineStageFlagBits = u32;
 pub const PIPELINE_STAGE_TOP_OF_PIPE_BIT: u32 = 0x00000001;
@@ -709,7 +768,6 @@ pub const PIPELINE_STAGE_ALL_COMMANDS_BIT: u32 = 0x00010000;
 pub type PipelineStageFlags = Flags;
 pub type MemoryMapFlags = Flags;
 
-
 pub type ImageAspectFlagBits = u32;
 pub const IMAGE_ASPECT_COLOR_BIT: u32 = 0x00000001;
 pub const IMAGE_ASPECT_DEPTH_BIT: u32 = 0x00000002;
@@ -717,18 +775,15 @@ pub const IMAGE_ASPECT_STENCIL_BIT: u32 = 0x00000004;
 pub const IMAGE_ASPECT_METADATA_BIT: u32 = 0x00000008;
 pub type ImageAspectFlags = Flags;
 
-
 pub type SparseImageFormatFlagBits = u32;
 pub const SPARSE_IMAGE_FORMAT_SINGLE_MIPTAIL_BIT: u32 = 0x00000001;
 pub const SPARSE_IMAGE_FORMAT_ALIGNED_MIP_SIZE_BIT: u32 = 0x00000002;
 pub const SPARSE_IMAGE_FORMAT_NONSTANDARD_BLOCK_SIZE_BIT: u32 = 0x00000004;
 pub type SparseImageFormatFlags = Flags;
 
-
 pub type SparseMemoryBindFlagBits = u32;
 pub const SPARSE_MEMORY_BIND_METADATA_BIT: u32 = 0x00000001;
 pub type SparseMemoryBindFlags = Flags;
-
 
 pub type FenceCreateFlagBits = u32;
 pub const FENCE_CREATE_SIGNALED_BIT: u32 = 0x00000001;
@@ -736,7 +791,6 @@ pub type FenceCreateFlags = Flags;
 pub type SemaphoreCreateFlags = Flags;
 pub type EventCreateFlags = Flags;
 pub type QueryPoolCreateFlags = Flags;
-
 
 pub type QueryPipelineStatisticFlagBits = u32;
 pub const QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT: u32 = 0x00000001;
@@ -752,7 +806,6 @@ pub const QUERY_PIPELINE_STATISTIC_TESSELLATION_EVALUATION_SHADER_INVOCATIONS_BI
 pub const QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT: u32 = 0x00000400;
 pub type QueryPipelineStatisticFlags = Flags;
 
-
 pub type QueryResultFlagBits = u32;
 pub const QUERY_RESULT_64_BIT: u32 = 0x00000001;
 pub const QUERY_RESULT_WAIT_BIT: u32 = 0x00000002;
@@ -760,13 +813,11 @@ pub const QUERY_RESULT_WITH_AVAILABILITY_BIT: u32 = 0x00000004;
 pub const QUERY_RESULT_PARTIAL_BIT: u32 = 0x00000008;
 pub type QueryResultFlags = Flags;
 
-
 pub type BufferCreateFlagBits = u32;
 pub const BUFFER_CREATE_SPARSE_BINDING_BIT: u32 = 0x00000001;
 pub const BUFFER_CREATE_SPARSE_RESIDENCY_BIT: u32 = 0x00000002;
 pub const BUFFER_CREATE_SPARSE_ALIASED_BIT: u32 = 0x00000004;
 pub type BufferCreateFlags = Flags;
-
 
 pub type BufferUsageFlagBits = u32;
 pub const BUFFER_USAGE_TRANSFER_SRC_BIT: u32 = 0x00000001;
@@ -784,14 +835,12 @@ pub type ImageViewCreateFlags = Flags;
 pub type ShaderModuleCreateFlags = Flags;
 pub type PipelineCacheCreateFlags = Flags;
 
-
 pub type PipelineCreateFlagBits = u32;
 pub const PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT: u32 = 0x00000001;
 pub const PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT: u32 = 0x00000002;
 pub const PIPELINE_CREATE_DERIVATIVE_BIT: u32 = 0x00000004;
 pub type PipelineCreateFlags = Flags;
 pub type PipelineShaderStageCreateFlags = Flags;
-
 
 pub type ShaderStageFlagBits = u32;
 pub const SHADER_STAGE_VERTEX_BIT: u32 = 0x00000001;
@@ -808,7 +857,6 @@ pub type PipelineTessellationStateCreateFlags = Flags;
 pub type PipelineViewportStateCreateFlags = Flags;
 pub type PipelineRasterizationStateCreateFlags = Flags;
 
-
 pub type CullModeFlagBits = u32;
 pub const CULL_MODE_NONE: u32 = 0;
 pub const CULL_MODE_FRONT_BIT: u32 = 0x00000001;
@@ -818,7 +866,6 @@ pub type CullModeFlags = Flags;
 pub type PipelineMultisampleStateCreateFlags = Flags;
 pub type PipelineDepthStencilStateCreateFlags = Flags;
 pub type PipelineColorBlendStateCreateFlags = Flags;
-
 
 pub type ColorComponentFlagBits = u32;
 pub const COLOR_COMPONENT_R_BIT: u32 = 0x00000001;
@@ -832,7 +879,6 @@ pub type ShaderStageFlags = Flags;
 pub type SamplerCreateFlags = Flags;
 pub type DescriptorSetLayoutCreateFlags = Flags;
 
-
 pub type DescriptorPoolCreateFlagBits = u32;
 pub const DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT: u32 = 0x00000001;
 pub type DescriptorPoolCreateFlags = Flags;
@@ -840,12 +886,10 @@ pub type DescriptorPoolResetFlags = Flags;
 pub type FramebufferCreateFlags = Flags;
 pub type RenderPassCreateFlags = Flags;
 
-
 pub type AttachmentDescriptionFlagBits = u32;
 pub const ATTACHMENT_DESCRIPTION_MAY_ALIAS_BIT: u32 = 0x00000001;
 pub type AttachmentDescriptionFlags = Flags;
 pub type SubpassDescriptionFlags = Flags;
-
 
 pub type AccessFlagBits = u32;
 pub const ACCESS_INDIRECT_COMMAND_READ_BIT: u32 = 0x00000001;
@@ -867,25 +911,20 @@ pub const ACCESS_MEMORY_READ_BIT: u32 = 0x00008000;
 pub const ACCESS_MEMORY_WRITE_BIT: u32 = 0x00010000;
 pub type AccessFlags = Flags;
 
-
 pub type DependencyFlagBits = u32;
 pub const DEPENDENCY_BY_REGION_BIT: u32 = 0x00000001;
 pub type DependencyFlags = Flags;
-
 
 pub type CommandPoolCreateFlagBits = u32;
 pub const COMMAND_POOL_CREATE_TRANSIENT_BIT: u32 = 0x00000001;
 pub const COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT: u32 = 0x00000002;
 pub type CommandPoolCreateFlags = Flags;
 
-
 pub type CommandPoolResetFlagBits = u32;
 pub const COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT: u32 = 0x00000001;
 pub type CommandPoolResetFlags = Flags;
 
-
 pub type CommandPoolTrimFlagsKHR = Flags;
-
 
 pub type CommandBufferUsageFlagBits = u32;
 pub const COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT: u32 = 0x00000001;
@@ -893,23 +932,19 @@ pub const COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT: u32 = 0x00000002;
 pub const COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT: u32 = 0x00000004;
 pub type CommandBufferUsageFlags = Flags;
 
-
 pub type QueryControlFlagBits = u32;
 pub const QUERY_CONTROL_PRECISE_BIT: u32 = 0x00000001;
 pub type QueryControlFlags = Flags;
 
-
 pub type CommandBufferResetFlagBits = u32;
 pub const COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT: u32 = 0x00000001;
 pub type CommandBufferResetFlags = Flags;
-
 
 pub type StencilFaceFlagBits = u32;
 pub const STENCIL_FACE_FRONT_BIT: u32 = 0x00000001;
 pub const STENCIL_FACE_BACK_BIT: u32 = 0x00000002;
 pub const STENCIL_FRONT_AND_BACK: u32 = 0x3;
 pub type StencilFaceFlags = Flags;
-
 
 pub type DisplayPlaneAlphaFlagBitsKHR = u32;
 pub const DISPLAY_PLANE_ALPHA_OPAQUE_BIT_KHR: u32 = 0x00000001;
@@ -1034,17 +1069,97 @@ pub const DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR: u32 = 0x00000001
 pub type DescriptorUpdateTemplateTypeKHR = u32;
 pub const DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET_KHR: u32 = 0;
 pub const DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR: u32 = 1;
-pub const DESCRIPTOR_UPDATE_TEMPLATE_TYPE_BEGIN_RANGE_KHR: u32 = DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET_KHR;
-pub const DESCRIPTOR_UPDATE_TEMPLATE_TYPE_END_RANGE_KHR: u32 = DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR;
-pub const DESCRIPTOR_UPDATE_TEMPLATE_TYPE_RANGE_SIZE_KHR: u32 = (DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR - DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET_KHR + 1);
+pub const DESCRIPTOR_UPDATE_TEMPLATE_TYPE_BEGIN_RANGE_KHR: u32 =
+    DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET_KHR;
+pub const DESCRIPTOR_UPDATE_TEMPLATE_TYPE_END_RANGE_KHR: u32 =
+    DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR;
+pub const DESCRIPTOR_UPDATE_TEMPLATE_TYPE_RANGE_SIZE_KHR: u32 =
+    (DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR
+        - DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET_KHR
+        + 1);
 pub type DescriptorUpdateTemplateCreateFlagsKHR = Flags;
 
-pub type PFN_vkAllocationFunction = extern "system" fn(*mut c_void, usize, usize, SystemAllocationScope) -> *mut c_void;
-pub type PFN_vkReallocationFunction = extern "system" fn(*mut c_void, *mut c_void, usize, usize, SystemAllocationScope) -> *mut c_void;
+pub type FenceImportFlagBitsKHR = u32;
+pub const FENCE_IMPORT_TEMPORARY_BIT_KHR: u32 = 0x00000001;
+pub type FenceImportFlagsKHR = Flags;
+
+pub type ExternalFenceHandleTypeFlagBitsKHR = u32;
+pub const EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT_KHR: u32 = 0x00000001;
+pub const EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR: u32 = 0x00000002;
+pub const EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHR: u32 = 0x00000004;
+pub const EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT_KHR: u32 = 0x00000008;
+pub type ExternalFenceHandleTypeFlagsKHR = Flags;
+
+pub type ExternalFenceFeatureFlagBitsKHR = u32;
+pub const EXTERNAL_FENCE_FEATURE_EXPORTABLE_BIT_KHR: u32 = 0x00000001;
+pub const EXTERNAL_FENCE_FEATURE_IMPORTABLE_BIT_KHR: u32 = 0x00000002;
+pub type ExternalFenceFeatureFlagsKHR = Flags;
+
+pub type ExternalMemoryHandleTypeFlagBitsKHR = u32;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR: u32 = 0x00000001;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR: u32 = 0x00000002;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHR: u32 = 0x00000004;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT_KHR: u32 = 0x00000008;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT_KHR: u32 = 0x00000010;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT_KHR: u32 = 0x00000020;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT_KHR: u32 = 0x00000040;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT: u32 = 0x00000200;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID: u32 = 0x00000400;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT: u32 = 0x00000080;
+pub const EXTERNAL_MEMORY_HANDLE_TYPE_HOST_MAPPED_FOREIGN_MEMORY_BIT_EXT: u32 = 0x00000100;
+pub type ExternalMemoryHandleTypeFlagsKHR = Flags;
+
+pub type ExternalMemoryFeatureFlagBitsKHR = u32;
+pub const EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT_KHR: u32 = 0x00000001;
+pub const EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT_KHR: u32 = 0x00000002;
+pub const EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT_KHR: u32 = 0x00000004;
+pub type ExternalMemoryFeatureFlagsKHR = Flags;
+
+pub type SemaphoreImportFlagBitsKHR = u32;
+pub const SEMAPHORE_IMPORT_TEMPORARY_BIT_KHR: u32 = 0x00000001;
+pub type SemaphoreImportFlagsKHR = Flags;
+
+pub type ExternalSemaphoreHandleTypeFlagBitsKHR = u32;
+pub const EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT_KHR: u32 = 0x00000001;
+pub const EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR: u32 = 0x00000002;
+pub const EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHR: u32 = 0x00000004;
+pub const EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT_KHR: u32 = 0x00000008;
+pub const EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT_KHR: u32 = 0x00000010;
+pub type ExternalSemaphoreHandleTypeFlagsKHR = Flags;
+
+pub type ExternalSemaphoreFeatureFlagBitsKHR = u32;
+pub const EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT_KHR: u32 = 0x00000001;
+pub const EXTERNAL_SEMAPHORE_FEATURE_IMPORTABLE_BIT_KHR: u32 = 0x00000002;
+pub type ExternalSemaphoreFeatureFlagsKHR = Flags;
+
+pub type PFN_vkAllocationFunction =
+    extern "system" fn(*mut c_void, usize, usize, SystemAllocationScope) -> *mut c_void;
+pub type PFN_vkReallocationFunction = extern "system" fn(
+    *mut c_void,
+    *mut c_void,
+    usize,
+    usize,
+    SystemAllocationScope,
+) -> *mut c_void;
 pub type PFN_vkFreeFunction = extern "system" fn(*mut c_void, *mut c_void);
-pub type PFN_vkInternalAllocationNotification = extern "system" fn(*mut c_void, usize, InternalAllocationType, SystemAllocationScope) -> *mut c_void;
-pub type PFN_vkInternalFreeNotification = extern "system" fn(*mut c_void, usize, InternalAllocationType, SystemAllocationScope) -> *mut c_void;
-pub type PFN_vkDebugUtilsMessengerCallbackEXT = extern "system" fn(DebugUtilsMessageSeverityFlagBitsEXT, DebugUtilsMessageTypeFlagsEXT, *const DebugUtilsMessengerCallbackDataEXT, *mut c_void) -> Bool32;
+pub type PFN_vkInternalAllocationNotification = extern "system" fn(
+    *mut c_void,
+    usize,
+    InternalAllocationType,
+    SystemAllocationScope,
+) -> *mut c_void;
+pub type PFN_vkInternalFreeNotification = extern "system" fn(
+    *mut c_void,
+    usize,
+    InternalAllocationType,
+    SystemAllocationScope,
+) -> *mut c_void;
+pub type PFN_vkDebugUtilsMessengerCallbackEXT = extern "system" fn(
+    DebugUtilsMessageSeverityFlagBitsEXT,
+    DebugUtilsMessageTypeFlagsEXT,
+    *const DebugUtilsMessengerCallbackDataEXT,
+    *mut c_void,
+) -> Bool32;
 
 pub type PFN_vkVoidFunction = extern "system" fn() -> ();
 
@@ -2123,7 +2238,7 @@ pub struct BufferImageCopy {
 pub union ClearColorValue {
     pub float32: [f32; 4],
     pub int32: [i32; 4],
-    pub uint32: [u32; 4]
+    pub uint32: [u32; 4],
 }
 
 #[repr(C)]
@@ -2136,7 +2251,7 @@ pub struct ClearDepthStencilValue {
 #[repr(C)]
 pub union ClearValue {
     pub color: ClearColorValue,
-    pub depthStencil: ClearDepthStencilValue
+    pub depthStencil: ClearDepthStencilValue,
 }
 
 #[repr(C)]
@@ -2288,7 +2403,6 @@ pub struct PresentInfoKHR {
     pub pResults: *mut Result,
 }
 
-
 #[repr(C)]
 pub struct DisplayPropertiesKHR {
     pub display: DisplayKHR,
@@ -2362,7 +2476,6 @@ pub struct DisplayPresentInfoKHR {
     pub persistent: Bool32,
 }
 
-
 pub type XlibSurfaceCreateFlagsKHR = Flags;
 
 #[repr(C)]
@@ -2385,7 +2498,6 @@ pub struct XcbSurfaceCreateInfoKHR {
     pub window: u32,
 }
 
-
 pub type WaylandSurfaceCreateFlagsKHR = Flags;
 
 #[repr(C)]
@@ -2407,7 +2519,6 @@ pub struct AndroidSurfaceCreateInfoKHR {
     pub window: *mut c_void,
 }
 
-
 pub type Win32SurfaceCreateFlagsKHR = Flags;
 
 #[repr(C)]
@@ -2421,18 +2532,18 @@ pub struct Win32SurfaceCreateInfoKHR {
 
 #[repr(C)]
 pub struct IOSSurfaceCreateInfoMVK {
-	pub sType: StructureType,
-	pub pNext: *const c_void,
-	pub flags: IOSSurfaceCreateFlagsMVK,
-	pub pView: *const c_void,
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub flags: IOSSurfaceCreateFlagsMVK,
+    pub pView: *const c_void,
 }
 
 #[repr(C)]
 pub struct MacOSSurfaceCreateInfoMVK {
-	pub sType: StructureType,
-	pub pNext: *const c_void,
-	pub flags: MacOSSurfaceCreateFlagsMVK,
-	pub pView: *const c_void,
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub flags: MacOSSurfaceCreateFlagsMVK,
+    pub pView: *const c_void,
 }
 
 #[repr(C)]
@@ -2448,11 +2559,11 @@ pub struct MVKDeviceConfiguration {
 
 #[repr(C)]
 pub struct MVKPhysicalDeviceMetalFeatures {
-	pub depthClipMode: Bool32,
-	pub indirectDrawing: Bool32,
-	pub baseVertexInstanceDrawing: Bool32,
-	pub maxVertexBufferCount: u32,
-	pub maxFragmentBufferCount: u32,
+    pub depthClipMode: Bool32,
+    pub indirectDrawing: Bool32,
+    pub baseVertexInstanceDrawing: Bool32,
+    pub maxVertexBufferCount: u32,
+    pub maxFragmentBufferCount: u32,
     pub bufferAlignment: DeviceSize,
     pub pushConstantsAlignment: DeviceSize,
 }
@@ -2688,6 +2799,282 @@ pub struct DebugUtilsObjectNameInfoEXT {
     pub pObjectName: *const c_char,
 }
 
+#[repr(C)]
+pub struct PhysicalDeviceIDPropertiesKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalFenceHandleTypeFlagsKHR,
+    pub deviceUUID: [u8; UUID_SIZE as usize],
+    pub driverUUID: [u8; UUID_SIZE as usize],
+    pub deviceLUID: [u8; LUID_SIZE_KHR as usize],
+    pub deviceNodeMask: u32,
+    pub deviceLUIDValid: Bool32,
+}
+
+#[repr(C)]
+pub struct ExportFenceCreateInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalFenceHandleTypeFlagsKHR,
+}
+
+#[repr(C)]
+pub struct PhysicalDeviceExternalFenceInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalFenceHandleTypeFlagsKHR,
+}
+
+#[repr(C)]
+pub struct ExternalFencePropertiesKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalFenceHandleTypeFlagsKHR,
+    pub exportFromImportedHandleTypes: ExternalFenceHandleTypeFlagsKHR,
+    pub compatibleHandleTypes: ExternalFenceHandleTypeFlagsKHR,
+    pub externalFenceFeatures: ExternalFenceFeatureFlagsKHR,
+}
+
+#[repr(C)]
+pub struct ImportFenceFdInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub fence: Fence,
+    pub flags: FenceImportFlagsKHR,
+    pub handleType: ExternalFenceHandleTypeFlagBitsKHR,
+    pub fd: c_int,
+}
+
+#[repr(C)]
+pub struct FenceGetFdInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub fence: Fence,
+    pub handleType: ExternalFenceHandleTypeFlagBitsKHR,
+}
+
+#[repr(C)]
+pub struct ImportFenceWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub fence: Fence,
+    pub flags: FenceImportFlagsKHR,
+    pub handleType: ExternalFenceHandleTypeFlagBitsKHR,
+    pub handle: win_types::HANDLE,
+    pub name: win_types::LPCWSTR,
+}
+
+#[repr(C)]
+pub struct ExportFenceWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub pAttributes: *const win_types::SECURITY_ATTRIBUTES,
+    pub dwAccess: win_types::DWORD,
+    pub name: win_types::LPCWSTR,
+}
+
+#[repr(C)]
+pub struct FenceGetWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub fence: Fence,
+    pub handleType: ExternalFenceHandleTypeFlagBitsKHR,
+}
+
+#[repr(C)]
+pub struct ExternalMemoryImageCreateInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalMemoryHandleTypeFlagsKHR,
+}
+
+#[repr(C)]
+pub struct ExternalMemoryBufferCreateInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalMemoryHandleTypeFlagsKHR,
+}
+
+#[repr(C)]
+pub struct ExportMemoryAllocateInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalMemoryHandleTypeFlagsKHR,
+}
+
+#[repr(C)]
+pub struct ExternalMemoryPropertiesKHR {
+    externalMemoryFeatures: ExternalMemoryFeatureFlagsKHR,
+    exportFromImportedHandleTypes: ExternalMemoryHandleTypeFlagsKHR,
+    compatibleHandleTypes: ExternalMemoryHandleTypeFlagsKHR,
+}
+
+#[repr(C)]
+pub struct PhysicalDeviceExternalImageFormatInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleType: ExternalMemoryHandleTypeFlagBitsKHR,
+}
+
+#[repr(C)]
+pub struct ExternalImageFormatPropertiesKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub externalMemoryProperties: ExternalMemoryPropertiesKHR,
+}
+
+#[repr(C)]
+pub struct PhysicalDeviceExternalBufferInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub flags: BufferCreateFlags,
+    pub usage: BufferUsageFlags,
+    pub handleType: ExternalMemoryHandleTypeFlagBitsKHR,
+}
+
+#[repr(C)]
+pub struct ExternalBufferPropertiesKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub externalMemoryProperties: ExternalMemoryPropertiesKHR,
+}
+
+#[repr(C)]
+pub struct ImportMemoryFdInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleType: ExternalMemoryHandleTypeFlagBitsKHR,
+    pub fd: c_int,
+}
+
+#[repr(C)]
+pub struct MemoryFdPropertiesKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub memoryTypeBits: u32,
+}
+
+#[repr(C)]
+pub struct MemoryGetFdInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub memory: DeviceMemory,
+    pub handleType: ExternalMemoryHandleTypeFlagBitsKHR,
+}
+
+#[repr(C)]
+pub struct ImportMemoryWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleType: ExternalMemoryHandleTypeFlagBitsKHR,
+    pub handle: win_types::HANDLE,
+    pub name: win_types::LPCWSTR,
+}
+
+#[repr(C)]
+pub struct ExportMemoryWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub pAttributes: *const win_types::SECURITY_ATTRIBUTES,
+    pub dwAccess: win_types::DWORD,
+    pub name: win_types::LPCWSTR,
+}
+
+#[repr(C)]
+pub struct MemoryWin32HandlePropertiesKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub memoryTypeBits: u32,
+}
+
+#[repr(C)]
+pub struct MemoryGetWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub memory: DeviceMemory,
+    pub handleType: ExternalMemoryHandleTypeFlagBitsKHR,
+}
+
+#[repr(C)]
+pub struct ExportSemaphoreCreateInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalSemaphoreHandleTypeFlagsKHR,
+}
+
+#[repr(C)]
+pub struct PhysicalDeviceExternalSemaphoreInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalSemaphoreHandleTypeFlagsKHR,
+}
+
+#[repr(C)]
+pub struct ExternalSemaphorePropertiesKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub handleTypes: ExternalSemaphoreHandleTypeFlagsKHR,
+    pub exportFromImportedHandleTypes: ExternalSemaphoreHandleTypeFlagsKHR,
+    pub compatibleHandleTypes: ExternalSemaphoreHandleTypeFlagsKHR,
+    pub externalSemaphoreFeatures: ExternalSemaphoreFeatureFlagsKHR,
+}
+
+#[repr(C)]
+pub struct ImportSemaphoreFdInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub semaphore: Semaphore,
+    pub flags: SemaphoreImportFlagsKHR,
+    pub handleType: ExternalSemaphoreHandleTypeFlagBitsKHR,
+    pub fd: c_int,
+}
+
+#[repr(C)]
+pub struct SemaphoreGetFdInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub semaphore: Semaphore,
+    pub handleType: ExternalSemaphoreHandleTypeFlagBitsKHR,
+}
+
+#[repr(C)]
+pub struct ImportSemaphoreWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub semaphore: Semaphore,
+    pub flags: SemaphoreImportFlagsKHR,
+    pub handleType: ExternalSemaphoreHandleTypeFlagBitsKHR,
+    pub handle: win_types::HANDLE,
+    pub name: win_types::LPCWSTR,
+}
+
+#[repr(C)]
+pub struct ExportSemaphoreWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub pAttributes: *const win_types::SECURITY_ATTRIBUTES,
+    pub dwAccess: win_types::DWORD,
+    pub name: win_types::LPCWSTR,
+}
+
+#[repr(C)]
+pub struct VkD3D12FenceSubmitInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub waitSemaphoreValuesCount: u32,
+    pub pWaitSemaphoreValues: *const u64,
+    pub signalSemaphoreValuesCount: u32,
+    pub pSignalSemaphoreValues: *const u64,
+}
+
+#[repr(C)]
+pub struct SemaphoreGetWin32HandleInfoKHR {
+    pub sType: StructureType,
+    pub pNext: *const c_void,
+    pub semaphore: Semaphore,
+    pub handleType: ExternalSemaphoreHandleTypeFlagBitsKHR,
+}
+
 macro_rules! ptrs {
     ($struct_name:ident, { $($name:ident => ($($param_n:ident: $param_ty:ty),*) -> $ret:ty,)+ }) => (
         pub struct $struct_name {
@@ -2796,6 +3183,9 @@ ptrs!(InstancePointers, {
     GetPhysicalDeviceQueueFamilyProperties2KHR => (physicalDevice: PhysicalDevice, pQueueFamilyPropertiesCount: *mut u32, pQueueFamilyProperties: *mut QueueFamilyProperties2KHR) -> (),
     GetPhysicalDeviceMemoryProperties2KHR => (physicalDevice: PhysicalDevice, pMemoryProperties: *mut PhysicalDeviceMemoryProperties2KHR) -> (),
     GetPhysicalDeviceSparseImageFormatProperties2KHR => (physicalDevice: PhysicalDevice, pFormatInfo: *const PhysicalDeviceSparseImageFormatInfo2KHR, pPropertyCount: *mut u32, pProperties: *mut SparseImageFormatProperties2KHR) -> (),
+    GetPhysicalDeviceExternalFencePropertiesKHR => (physicalDevice: PhysicalDevice, pExternalFenceInfo: *const PhysicalDeviceExternalFenceInfoKHR, pExternalFenceProperties: *mut ExternalFencePropertiesKHR) -> (),
+    GetPhysicalDeviceExternalBufferPropertiesKHR => (physicalDevice: PhysicalDevice, pExternalBufferInfo: *const PhysicalDeviceExternalBufferInfoKHR, pExternalBufferProperties: *mut ExternalBufferPropertiesKHR) -> (),
+    GetPhysicalDeviceExternalSemaphorePropertiesKHR => (physicalDevice: PhysicalDevice, pExternalSemaphoreInfo: *const PhysicalDeviceExternalSemaphoreInfoKHR, pExternalSemaphoreProperties: *mut ExternalSemaphorePropertiesKHR) -> (),
 });
 
 ptrs!(DevicePointers, {
@@ -2937,4 +3327,16 @@ ptrs!(DevicePointers, {
     CmdBeginDebugUtilsLabelEXT => (commandBuffer: CommandBuffer, pLabelInfo: *const DebugUtilsLabelEXT) -> Result,
     CmdEndDebugUtilsLabelEXT => (commandBuffer: CommandBuffer) -> Result,
     CmdInsertDebugUtilsLabelEXT => (commandBuffer: CommandBuffer, pLabelInfo: *const DebugUtilsLabelEXT) -> Result,
+    ImportFenceFdKHR => (device: Device, pImportFenceFdInfo: *const ImportFenceFdInfoKHR) -> Result,
+    GetFenceFdKHR => (device: Device, pGetFdInfo: *const FenceGetFdInfoKHR, pFd: *mut c_int) -> Result,
+    ImportFenceWin32HandleKHR => (device: Device, pImportFenceWin32HandleInfo: *const ImportFenceWin32HandleInfoKHR) -> Result,
+    GetFenceWin32HandleKHR => (device: Device, pGetWin32HandleInfo: *const FenceGetWin32HandleInfoKHR, pHandle: *mut win_types::HANDLE) -> Result,
+    GetMemoryFdKHR => (device: Device, pGetFdInfo: *const MemoryGetFdInfoKHR, pFd: *mut c_int) -> Result,
+    GetMemoryFdPropertiesKHR => (device: Device, handleType: ExternalMemoryHandleTypeFlagBitsKHR, fd: c_int, pMemoryFdProperties: *mut MemoryFdPropertiesKHR) -> Result,
+    GetMemoryWin32HandleKHR => (device: Device, pGetWin32HandleInfo: *const MemoryGetWin32HandleInfoKHR, pHandle: *mut win_types::HANDLE) -> Result,
+    GetMemoryWin32HandlePropertiesKHR => (device: Device, handleType: ExternalMemoryHandleTypeFlagBitsKHR, handle: win_types::HANDLE, pMemoryWin32HandleProperties: *mut MemoryWin32HandlePropertiesKHR) -> Result,
+    ImportSemaphoreFdKHR => (device: Device, pImportSemaphoreFdInfo: *const ImportSemaphoreFdInfoKHR) -> Result,
+    GetSemaphoreFdKHR => (device: Device, pGetFdInfo: *const SemaphoreGetFdInfoKHR, pFd: *mut c_int) -> Result,
+    ImportSemaphoreWin32HandleKHR => (device: Device, pImportSemaphoreWin32HandleInfo: *const ImportSemaphoreWin32HandleInfoKHR) -> Result,
+    GetSemaphoreWin32HandleKHR => (device: Device, pGetWin32HandleInfo: *const SemaphoreGetWin32HandleInfoKHR, pHandle: *mut win_types::HANDLE) -> Result,
 });
